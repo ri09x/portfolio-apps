@@ -1,2 +1,17 @@
 # portfolio-apps
-Small web apps collection for portfolio: task manager, budget dashboard, and pomodoro timer.
+
+小さなWebアプリケーションのコレクションです。すべてブラウザだけで動作し、ビルドは不要です。各アプリのフォルダにある `index.html` を開くと使えます。
+
+## アプリ一覧
+
+| アプリ | 説明 | 主な機能 |
+| --- | --- | --- |
+| [タスク管理アプリ](task-manager/) | シンプルなToDoアプリ | 追加・完了・削除、未完了／完了の絞り込み、localStorage保存 |
+| [家計簿ダッシュボード](budget-dashboard/) | 収支を記録して可視化するアプリ | 収入・支出の記録、合計と残高の表示、カテゴリ別支出グラフ、localStorage保存 |
+| [ポモドーロタイマー](pomodoro-timer/) | 集中と休憩を繰り返すタイマー | 25分／5分／15分のモード切替、円形プログレス表示、セッション記録 |
+
+## 技術
+
+- HTML / CSS / JavaScript（フレームワークなし）
+- データ保存：localStorage
+- グラフ描画：Canvas API

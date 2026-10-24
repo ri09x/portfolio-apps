@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>家計簿ダッシュボード</title>
+<style>
+  :root{--bg:#0c1410;--card:#16221b;--line:#26382d;--text:#ecf5ee;--muted:#93ad9b;--in:#3ecf7a;--out:#ff7a6b;--accent:#2ea86a}
+  *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Hiragino Sans",sans-serif;background:var(--bg);color:var(--text)}
+  .wrap{max-width:760px;margin:0 auto;padding:32px 20px 64px}
+  h1{font-size:28px;margin:0 0 4px}.sub{color:var(--muted);margin:0 0 24px;font-size:14px}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+  .card .label{color:var(--muted);font-size:13px}.card .value{font-size:24px;font-weight:700;margin-top:4px}
+  .in{color:var(--in)}.out{color:var(--out)}
+  form{display:grid;grid-template-columns:110px 1fr 130px 120px auto;gap:8px;margin-bottom:20px}
+  select,input{padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:15px;min-width:0}
+  button{padding:11px 16px;border-radius:10px;border:0;background:var(--accent);color:#fff;font-weight:600;cursor:pointer}
+  canvas{width:100%;background:var(--card);border:1px solid var(--line);border-radius:16px;margin-bottom:20px}
+  ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+  li{display:flex;gap:12px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:15px}
+  li .name{flex:1;word-break:break-word}li .cat{color:var(--muted);font-size:13px}
+  .del{background:transparent;color:var(--out);padding:4px 8px}
+  .empty{color:var(--muted);text-align:center;padding:24px 0}
+  @media(max-width:640px){form{grid-template-columns:1fr 1fr}.cards{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>家計簿ダッシュボード</h1>
+  <p class="sub">収支を記録すると、合計とカテゴリ別の支出グラフが更新されます。データはブラウザに保存されます。</p>
+  <div class="cards">
+    <div class="card"><div class="label">収入合計</div><div class="value in" id="sumIn">¥0</div></div>
+    <div class="card"><div class="label">支出合計</div><div class="value out" id="sumOut">¥0</div></div>
+    <div class="card"><div class="label">残高</div><div class="value" id="sumBal">¥0</div></div>
+  </div>
+  <form id="addForm">
+    <select id="type"><option value="out">支出</option><option value="in">収入</option></select>
+    <input type="text" id="name" placeholder="内容（例：スーパー）" autocomplete="off">
+    <select id="cat">
+      <option>食費</option><option>交通費</option><option>日用品</option><option>娯楽</option>
+      <option>給料</option><option>その他</option>
+    </select>
+    <input type="number" id="amount" placeholder="金額" min="1" step="1">
+    <button type="submit">記録</button>
+  </form>
+  <canvas id="chart" height="180"></canvas>
+  <ul id="list"></ul>
+  <p class="empty" id="empty">まだ記録がありません。</p>
+</div>
+<script>
+const KEY='budget-dashboard.entries.v1';
+let entries=JSON.parse(localStorage.getItem(KEY)||'[]');
+const fmt=n=>'¥'+n.toLocaleString('ja-JP');
+const list=document.getElementById('list');
+function save(){localStorage.setItem(KEY,JSON.stringify(entries))}
+function drawChart(){
+  const cv=document.getElementById('chart'), ctx=cv.getContext('2d');
+  const w=cv.clientWidth, h=180; cv.width=w; cv.height=h; ctx.clearRect(0,0,w,h);
+  const byCat={};
+  entries.filter(e=>e.type==='out').forEach(e=>{byCat[e.cat]=(byCat[e.cat]||0)+e.amount});
+  const cats=Object.keys(byCat);
+  ctx.fillStyle='#93ad9b'; ctx.font='13px sans-serif';
+  if(!cats.length){ctx.fillText('支出を記録するとカテゴリ別グラフが表示されます',16,28);return}
+  const max=Math.max(...Object.values(byCat));
+  const bw=Math.min(64,(w-32)/cats.length-16);
+  cats.forEach((c,i)=>{
+    const x=24+i*((w-32)/cats.length), bh=Math.max(6,(h-64)*(byCat[c]/max));
+    ctx.fillStyle='#ff7a6b'; ctx.fillRect(x,h-36-bh,bw,bh);
+    ctx.fillStyle='#ecf5ee'; ctx.fillText(c,x,h-16);
+    ctx.fillText(fmt(byCat[c]),x,h-44-bh);
+  });
+}
+function render(){
+  const sumIn=entries.filter(e=>e.type==='in').reduce((s,e)=>s+e.amount,0);
+  const sumOut=entries.filter(e=>e.type==='out').reduce((s,e)=>s+e.amount,0);
+  document.getElementById('sumIn').textContent=fmt(sumIn);
+  document.getElementById('sumOut').textContent=fmt(sumOut);
+  document.getElementById('sumBal').textContent=fmt(sumIn-sumOut);
+  list.innerHTML='';
+  entries.forEach(e=>{
+    const li=document.createElement('li');
+    const name=document.createElement('span'); name.className='name'; name.textContent=e.name;
+    const cat=document.createElement('span'); cat.className='cat'; cat.textContent=e.cat+' ・ '+e.date;
+    const amt=document.createElement('strong'); amt.className=e.type==='in'?'in':'out';
+    amt.textContent=(e.type==='in'?'+':'−')+fmt(e.amount);
+    const del=document.createElement('button'); del.className='del'; del.textContent='削除';
+    del.addEventListener('click',()=>{entries=entries.filter(x=>x.id!==e.id);save();render()});
+    li.append(name,cat,amt,del); list.appendChild(li);
+  });
+  document.getElementById('empty').style.display=entries.length?'none':'block';
+  drawChart();
+}
+document.getElementById('addForm').addEventListener('submit',ev=>{
+  ev.preventDefault();
+  const name=document.getElementById('name').value.trim();
+  const amount=Number(document.getElementById('amount').value);
+  if(!name||!amount||amount<=0)return;
+  entries.unshift({id:Date.now(),type:document.getElementById('type').value,name,
+    cat:document.getElementById('cat').value,amount,
+    date:new Date().toLocaleDateString('ja-JP')});
+  document.getElementById('name').value=''; document.getElementById('amount').value='';
+  save(); render();
+});
+window.addEventListener('resize',drawChart);
+render();
+</script>
+</body>
+</html>
